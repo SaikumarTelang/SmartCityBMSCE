@@ -1,0 +1,51 @@
+﻿import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
+import { auth, hasConfig } from '../firebase';
+import { registerUser } from '../api/client';
+import '../styles/Login.css';
+
+export default function Login() {
+  const navigate = useNavigate();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      let uid;
+
+      if (hasConfig && auth) {
+        const credential = isSignUp
+          ? await createUserWithEmailAndPassword(auth, email, password)
+          : await signInWithEmailAndPassword(auth, email, password);
+        uid = credential.user.uid;
+      } else {
+        if (!mobile) throw new Error('Mobile number is required without Firebase config');
+        uid = `user_${mobile}`;
+      }
+
+      await registerUser({ uid, mobile, name: name || 'Citizen', email });
+      localStorage.setItem('userId', uid);
+      localStorage.setItem('userName', name || 'Citizen');
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <motion className="page login-page">

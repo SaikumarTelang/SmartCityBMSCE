@@ -1,0 +1,5 @@
+.login-page h1 { margin-bottom: 0.5rem; }
+.subtitle { color: var(--muted); margin-bottom: 1.5rem; }
+.login-form label { display: block; margin-bottom: 1rem; }
+.login-form input { margin-top: 0.35rem; }
+.admin-link { display: block; margin-top: 1.5rem; color: var(--primary); }

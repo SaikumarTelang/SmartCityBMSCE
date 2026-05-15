@@ -1,0 +1,35 @@
+.splash {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f172a, #1e3a5f);
+}
+
+.splash-content {
+  text-align: center;
+}
+
+.splash h1 {
+  font-size: 3rem;
+  color: #38bdf8;
+}
+
+.tagline {
+  color: #94a3b8;
+  margin-top: 1rem;
+}
+
+.loader {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #334155;
+  border-top-color: #38bdf8;
+  border-radius: 50%;
+  margin: 2rem auto;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

@@ -1,0 +1,24 @@
+.admin-dashboard header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.report-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.map-page { position: relative; }
+.map-back {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 1000;
+  background: var(--surface);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+}

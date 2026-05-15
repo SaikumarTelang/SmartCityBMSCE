@@ -1,0 +1,11 @@
+{
+  "name": "smartcity-app",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install --prefix server && npm install --prefix client",
+    "server": "npm run dev --prefix server",
+    "client": "npm run dev --prefix client",
+    "ai": "py aiModel/app.py",
+    "setup:models": "py aiModel/setup_models.py"
+  }
+}
