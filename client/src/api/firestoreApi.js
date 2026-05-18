@@ -25,27 +25,64 @@ function mapDoc(d) {
   return { id: d.id, ...data, location, weightScore };
 }
 
-export async function registerUser({ uid, mobile, name, email }) {
+export async function registerUser({ uid, mobile, name, email, password }) {
   await setDoc(
     doc(db, 'users', uid),
     {
       mobileNumber: mobile || '',
       email: email || '',
       name: name || 'Citizen',
-      points: 320,
-      rank: 'Level 3',
+      password: password || '',
+      points: 0,
+      rank: 'Level 1',
       reportsCount: 0,
       joinedAt: new Date(),
     },
     { merge: true }
   );
-  return { message: 'Profile created' };
+  const { password: _, ...profileWithoutPassword } = {
+    mobileNumber: mobile || '',
+    email: email || '',
+    name: name || 'Citizen',
+    points: 0,
+    rank: 'Level 1',
+    reportsCount: 0,
+    joinedAt: new Date(),
+  };
+  return { message: 'Profile created', profile: profileWithoutPassword };
+}
+
+export async function loginUser({ mobile, password }) {
+  const snap = await getDocs(collection(db, 'users'));
+  let userDoc = null;
+  let userId = null;
+  
+  for (const doc of snap.docs) {
+    const data = doc.data();
+    if (data.mobileNumber === mobile) {
+      userDoc = data;
+      userId = doc.id;
+      break;
+    }
+  }
+  
+  if (!userDoc) {
+    throw new Error('User not found');
+  }
+  
+  if (userDoc.password !== password) {
+    throw new Error('Invalid password');
+  }
+  
+  const { password: _, ...profileWithoutPassword } = userDoc;
+  return { message: 'Login successful', uid: userId, profile: profileWithoutPassword };
 }
 
 export async function getUser(uid) {
   const snap = await getDoc(doc(db, 'users', uid));
   if (!snap.exists()) throw new Error('User not found');
-  return snap.data();
+  const { password: _, ...profileWithoutPassword } = snap.data();
+  return profileWithoutPassword;
 }
 
 export async function getReports() {
@@ -128,7 +165,7 @@ export async function submitReport({
     if (userSnap.exists()) {
       await updateDoc(userRef, {
         reportsCount: increment(1),
-        points: increment(10),
+        points: increment(50),
       });
     }
   }

@@ -60,7 +60,16 @@ exports.createReport = async (req, res) => {
       };
       report.weightScore = calcWeightScore(report);
       const id = demoStore.nextId();
-      demoStore.reports.push({ id, ...report });
+      const fullReport = { id, ...report };
+      demoStore.addReport(fullReport);
+      
+      if (userId) {
+        demoStore.updateUser(userId, {
+          points: (demoStore.users.get(userId)?.points || 0) + 50,
+          reportsCount: (demoStore.users.get(userId)?.reportsCount || 0) + 1
+        });
+      }
+      
       return res.status(201).json({ isDuplicate: false, id, ticketId: report.ticketId });
     }
 
@@ -96,6 +105,18 @@ exports.createReport = async (req, res) => {
     };
     newReport.weightScore = calcWeightScore(newReport);
     const docRef = await db.collection('reports').add(newReport);
+    
+    if (userId) {
+      const userRef = db.collection('users').doc(userId);
+      const userSnap = await userRef.get();
+      if (userSnap.exists) {
+        await userRef.update({
+          points: admin.firestore.FieldValue.increment(50),
+          reportsCount: admin.firestore.FieldValue.increment(1)
+        });
+      }
+    }
+    
     res.status(201).json({ isDuplicate: false, id: docRef.id });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -111,6 +132,11 @@ exports.upvoteReport = async (req, res) => {
       report.votes = (report.votes || 1) + 1;
       report.weightScore = calcWeightScore(report);
       report.status = report.votes >= 5 ? 'Critical Queue' : report.status;
+      demoStore.updateReport(id, {
+        votes: report.votes,
+        weightScore: report.weightScore,
+        status: report.status
+      });
       return res.json({ votes: report.votes, weightScore: report.weightScore });
     }
     const ref = db.collection('reports').doc(id);
@@ -129,7 +155,9 @@ exports.dispatchReport = async (req, res) => {
   try {
     if (demoMode) {
       const report = demoStore.reports.find((r) => r.id === id);
-      if (report) report.status = 'In Progress';
+      if (report) {
+        demoStore.updateReport(id, { status: 'In Progress' });
+      }
       return res.json({ message: 'Dispatched' });
     }
     await db.collection('reports').doc(id).update({ status: 'In Progress' });
@@ -160,10 +188,45 @@ exports.updateStatus = async (req, res) => {
     if (demoMode) {
       const report = demoStore.reports.find((r) => r.id === id);
       if (!report) return res.status(404).json({ error: 'Not found' });
-      report.status = status;
+      
+      const oldStatus = report.status;
+      
+      demoStore.updateReport(id, { status });
+      
+      if (status === 'Resolved' && oldStatus !== 'Resolved') {
+        if (report.reportedBy && report.reportedBy !== 'anonymous') {
+          const user = demoStore.users.get(report.reportedBy);
+          if (user) {
+            demoStore.updateUser(report.reportedBy, {
+              points: (user.points || 0) + 20
+            });
+          }
+        }
+      }
+      
       return res.json({ message: 'Updated' });
     }
-    await db.collection('reports').doc(id).update({ status });
+    
+    const reportRef = db.collection('reports').doc(id);
+    const reportSnap = await reportRef.get();
+    if (!reportSnap.exists) return res.status(404).json({ error: 'Not found' });
+    
+    const oldStatus = reportSnap.data().status;
+    await reportRef.update({ status });
+    
+    if (status === 'Resolved' && oldStatus !== 'Resolved') {
+      const reportedBy = reportSnap.data().reportedBy;
+      if (reportedBy && reportedBy !== 'anonymous') {
+        const userRef = db.collection('users').doc(reportedBy);
+        const userSnap = await userRef.get();
+        if (userSnap.exists) {
+          await userRef.update({
+            points: admin.firestore.FieldValue.increment(20)
+          });
+        }
+      }
+    }
+    
     res.json({ message: 'Updated' });
   } catch (error) {
     res.status(500).json({ error: error.message });

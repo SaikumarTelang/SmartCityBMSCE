@@ -1,0 +1,91 @@
+{
+  "reportId": 3,
+  "reports": [
+    {
+      "id": "1",
+      "category": "Garbage",
+      "severity": "High",
+      "location": {
+        "lat": 12.937668499999997,
+        "lng": 77.562973
+      },
+      "reportedBy": "user_1778877419010",
+      "status": "Reported",
+      "timestamp": "2026-05-15T20:37:19.328Z",
+      "votes": 1,
+      "aiConfidence": 0.92,
+      "detections": [
+        {
+          "type": "Garbage",
+          "confidence": 0.92,
+          "severity": "High"
+        },
+        {
+          "type": "Pothole",
+          "confidence": 0.08,
+          "severity": "Low"
+        }
+      ],
+      "address": "Lat: 12.9377, Lng: 77.5630",
+      "ticketId": "TKT-7843",
+      "weightScore": 35
+    },
+    {
+      "id": "2",
+      "category": "Pothole",
+      "severity": "High",
+      "location": {
+        "lat": 12.937684667326172,
+        "lng": 77.5628014906727
+      },
+      "reportedBy": "user_1778877552585",
+      "status": "Reported",
+      "timestamp": "2026-05-15T20:39:27.894Z",
+      "votes": 1,
+      "aiConfidence": 0.95,
+      "detections": [
+        {
+          "type": "Pothole",
+          "confidence": 0.95,
+          "severity": "High"
+        },
+        {
+          "type": "Garbage",
+          "confidence": 0.05,
+          "severity": "Low"
+        }
+      ],
+      "address": "Lat: 12.9377, Lng: 77.5628",
+      "ticketId": "TKT-5713",
+      "weightScore": 35
+    }
+  ],
+  "users": [
+    [
+      "user_1778877419010",
+      {
+        "mobileNumber": "7816993528",
+        "email": "",
+        "name": "sai",
+        "password": "$2b$10$TOodmCznKr/0oSGko/5Oke9EoijEv5q0EPuq.2cIuTkiSeOPdUcLC",
+        "points": 50,
+        "rank": "Level 1",
+        "reportsCount": 1,
+        "joinedAt": "2026-05-15T20:36:59.074Z"
+      }
+    ],
+    [
+      "user_1778877552585",
+      {
+        "mobileNumber": "7899233293",
+        "email": "",
+        "name": "Rahul",
+        "password": "$2b$10$OY1dW8ZCnD19zI74OW092e3fLZVa5nXc5.vWA93fCYG9cy1G9TEEu",
+        "points": 50,
+        "rank": "Level 1",
+        "reportsCount": 1,
+        "joinedAt": "2026-05-15T20:39:12.647Z"
+      }
+    ]
+  ]
+}

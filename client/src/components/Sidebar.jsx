@@ -1,5 +1,7 @@
 import { Home, MapPin, Camera, Trophy, LogOut, Building2, User } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { getUser } from '../api/client';
 
 const navItems = [
   { to: '/dashboard', icon: Home, label: 'Home' },
@@ -10,12 +12,50 @@ const navItems = [
 
 export default function Sidebar({ updateAuth }) {
   const navigate = useNavigate();
+  const userId = localStorage.getItem('userId');
+  const userName = localStorage.getItem('userName');
   const mobile = localStorage.getItem('mobile');
-  const points = 320;
+  const [points, setPoints] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [forceKey, setForceKey] = useState(0);
+
+  useEffect(() => {
+    localStorage.removeItem('userPoints');
+    localStorage.removeItem('stats');
+    localStorage.removeItem('reports');
+    localStorage.removeItem('notifications');
+    localStorage.removeItem('reportsFiled');
+    localStorage.removeItem('resolved');
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      console.log('Sidebar - Fetching user for ID:', userId);
+      console.log('Sidebar - Force key:', forceKey);
+      getUser(userId).then((u) => {
+        console.log('Sidebar - User data:', u);
+        setPoints(u.points || 0);
+      }).catch((err) => {
+        console.error('Sidebar - Error fetching user:', err);
+      });
+    }
+  }, [userId, refreshKey, forceKey]);
+  
+  useEffect(() => {
+    window.forceRefreshSidebar = () => setForceKey(prev => prev + 1);
+  }, []);
+  
+  useEffect(() => {
+    const originalUpdateAuth = updateAuth;
+    if (originalUpdateAuth) {
+      window.refreshSidebar = () => setRefreshKey(prev => prev + 1);
+    }
+  }, [updateAuth]);
 
   const handleLogout = () => {
     localStorage.removeItem('userId');
     localStorage.removeItem('mobile');
+    localStorage.removeItem('userName');
     if (updateAuth) {
       updateAuth();
     }
@@ -63,7 +103,7 @@ export default function Sidebar({ updateAuth }) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-white font-medium truncate">
-                {mobile ? `User ${mobile}` : 'Citizen'}
+                {userName || (mobile ? `User ${mobile}` : 'Citizen')}
               </p>
               <p className="text-emerald-400 text-sm font-semibold">
                 🏆 {points} Points

@@ -1,21 +1,111 @@
 import { Trophy, Star, Zap, Award, TrendingUp } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { getUser, getReports } from '../api/client';
+import { getUserData, setUserData } from '../utils/storage';
 
 export default function Milestones({ updateAuth }) {
-  const userRank = 'Gold Citizen';
-  const totalPoints = 320;
-  const nextRankPoints = 500;
+  const [renderKey, setRenderKey] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [forceKey, setForceKey] = useState(0);
+  const userId = localStorage.getItem('userId');
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [reportsFiled, setReportsFiled] = useState(0);
+  const [resolved, setResolved] = useState(0);
+
+  useEffect(() => {
+    localStorage.removeItem('userPoints');
+    localStorage.removeItem('stats');
+    localStorage.removeItem('reports');
+    localStorage.removeItem('notifications');
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRenderKey(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (userId) {
+        getUser(userId).then((u) => {
+          console.log('Milestones - User data:', u);
+          setTotalPoints(u.points || 0);
+        }).catch(() => {});
+        
+        try {
+          const allReports = await getReports();
+          const userReports = allReports.filter(r => r.reportedBy === userId);
+          
+          let filed = 0;
+          let res = 0;
+          userReports.forEach(r => {
+            filed++;
+            if (r.status === 'Resolved' || r.status === 'Fixed') {
+              res++;
+            }
+          });
+          
+          setReportsFiled(filed);
+          setResolved(res);
+          
+          setUserData('stats', { reportsFiled: filed, activeTickets: filed - res, resolved: res });
+        } catch (error) {
+          console.error('Failed to load reports for milestones:', error);
+        }
+      }
+    };
+    
+    loadData();
+  }, [userId, refreshKey, forceKey]);
+  
+  useEffect(() => {
+    window.refreshMilestones = () => {
+      setRefreshKey(prev => prev + 1);
+      setForceKey(prev => prev + 1);
+    };
+  }, []);
+
+  const getRank = (points) => {
+    if (points >= 1000) return 'Platinum Citizen';
+    if (points >= 500) return 'Gold Citizen';
+    if (points >= 200) return 'Silver Citizen';
+    if (points >= 100) return 'Bronze Citizen';
+    return 'New Citizen';
+  };
+
+  const getNextRankPoints = (points) => {
+    if (points >= 1000) return 1000;
+    if (points >= 500) return 1000;
+    if (points >= 200) return 500;
+    if (points >= 100) return 200;
+    return 100;
+  };
+
+  const getNextRankName = (points) => {
+    if (points >= 1000) return 'Platinum Citizen';
+    if (points >= 500) return 'Platinum Citizen';
+    if (points >= 200) return 'Gold Citizen';
+    if (points >= 100) return 'Silver Citizen';
+    return 'Bronze Citizen';
+  };
+
+  const userRank = getRank(totalPoints);
+  const nextRankPoints = getNextRankPoints(totalPoints);
+  const nextRankName = getNextRankName(totalPoints);
 
   const badges = [
-    { id: 1, name: 'First Report', icon: Star, unlocked: true, points: 50 },
-    { id: 2, name: 'Quick Fixer', icon: Zap, unlocked: true, points: 100 },
-    { id: 3, name: 'City Hero', icon: Trophy, unlocked: false, points: 200 },
-    { id: 4, name: 'Legend', icon: Award, unlocked: false, points: 500 },
+    { id: 1, name: 'First Report', icon: Star, unlocked: totalPoints >= 50, points: 50 },
+    { id: 2, name: 'Quick Fixer', icon: Zap, unlocked: totalPoints >= 100, points: 100 },
+    { id: 3, name: 'City Hero', icon: Trophy, unlocked: totalPoints >= 200, points: 200 },
+    { id: 4, name: 'Legend', icon: Award, unlocked: totalPoints >= 500, points: 500 },
   ];
 
-  const progress = (totalPoints / nextRankPoints) * 100;
+  const progress = totalPoints >= nextRankPoints ? 100 : (totalPoints / nextRankPoints) * 100;
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div key={renderKey} className="p-8 max-w-4xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Milestones</h1>
         <p className="text-slate-600">Track your civic engagement and earn badges</p>
@@ -36,7 +126,7 @@ export default function Milestones({ updateAuth }) {
           </div>
         </div>
         <div className="mb-2 flex justify-between text-sm font-medium">
-          <span>Progress to Platinum</span>
+          <span>Progress to {nextRankName}</span>
           <span>{totalPoints}/{nextRankPoints} points</span>
         </div>
         <div className="h-3 bg-white/30 rounded-full overflow-hidden">
@@ -49,57 +139,45 @@ export default function Milestones({ updateAuth }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-emerald-600" />
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-emerald-600" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">Weekly Stats</h3>
             </div>
-            <h3 className="text-lg font-bold text-slate-900">Weekly Stats</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-slate-600">Reports Filed</span>
+                <span className="font-bold text-slate-900">{reportsFiled}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Issues Resolved</span>
+                <span className="font-bold text-emerald-600">{resolved}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Points Earned</span>
+                <span className="font-bold text-amber-600">+{Math.max(0, totalPoints)}</span>
+              </div>
+            </div>
           </div>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-slate-600">Reports Filed</span>
-              <span className="font-bold text-slate-900">5</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-600">Issues Resolved</span>
-              <span className="font-bold text-emerald-600">3</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-600">Points Earned</span>
-              <span className="font-bold text-amber-600">+85</span>
-            </div>
-          </div>
-        </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
               <Award className="w-5 h-5 text-blue-600" />
             </div>
-            <h3 className="text-lg font-bold text-slate-900">Leaderboard</h3>
+            <h3 className="text-lg font-bold text-slate-900">Your Progress</h3>
           </div>
           <div className="space-y-3">
-            {[
-              { rank: 1, name: 'Arjun P.', points: 1250 },
-              { rank: 2, name: 'You', points: 320 },
-              { rank: 3, name: 'Neha S.', points: 280 },
-            ].map((user) => (
-              <div key={user.rank} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                    user.rank === 1 ? 'bg-amber-100 text-amber-700' : 
-                    user.rank === 2 ? 'bg-slate-200 text-slate-700' : 
-                    'bg-orange-100 text-orange-700'
-                  }`}>
-                    {user.rank}
-                  </span>
-                  <span className={`font-medium ${user.name === 'You' ? 'text-emerald-600' : 'text-slate-700'}`}>
-                    {user.name}
-                  </span>
-                </div>
-                <span className="font-bold text-slate-900">{user.points}</span>
+            <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+              <div className="flex items-center gap-3">
+                <span className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm bg-emerald-100 text-emerald-700">
+                  🏆
+                </span>
+                <span className="font-medium text-emerald-700">You</span>
               </div>
-            ))}
+              <span className="font-bold text-emerald-700">{totalPoints} Points</span>
+            </div>
           </div>
         </div>
       </div>

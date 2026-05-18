@@ -22,6 +22,12 @@ export async function registerUser(payload) {
   return data;
 }
 
+export async function loginUser(payload) {
+  if (hasConfig) return firestoreApi.loginUser(payload);
+  const { data } = await api.post('/auth/login', payload);
+  return data;
+}
+
 export async function getUser(uid) {
   if (hasConfig) return firestoreApi.getUser(uid);
   const { data } = await api.get(`/auth/user/${uid}`);

@@ -1,36 +1,84 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, LogIn } from 'lucide-react';
+import { registerUser, loginUser } from '../api/client';
+import { clearAllUserData } from '../utils/storage';
 
 export default function Login({ updateAuth }) {
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [name, setName] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-    console.log('Login form submitted');
-    console.log('Mobile:', mobile);
-    console.log('Password:', password);
     e.preventDefault();
     setLoading(true);
     
-    const uid = `demo_user_${mobile || 'guest'}`;
-    localStorage.setItem('userId', uid);
-    localStorage.setItem('mobile', mobile || 'guest');
-    
-    console.log('Stored userId:', localStorage.getItem('userId'));
-    console.log('Stored mobile:', localStorage.getItem('mobile'));
-    
-    if (updateAuth) {
-      updateAuth();
-    }
-    
-    setTimeout(() => {
+    try {
+      localStorage.removeItem('userId');
+      localStorage.removeItem('mobile');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('userPoints');
+      localStorage.removeItem('stats');
+      localStorage.removeItem('reports');
+      localStorage.removeItem('notifications');
+      localStorage.removeItem('reportsFiled');
+      localStorage.removeItem('resolved');
+      
+      if (isRegistering) {
+        if (password !== confirmPassword) {
+          alert('Passwords do not match!');
+          setLoading(false);
+          return;
+        }
+        if (!name || !mobile || !password) {
+          alert('Please fill in all fields!');
+          setLoading(false);
+          return;
+        }
+        
+        const uid = `user_${Date.now()}`;
+        const result = await registerUser({ uid, mobile, name, password });
+        
+        localStorage.setItem('userId', uid);
+        localStorage.setItem('mobile', mobile);
+        localStorage.setItem('userName', name);
+        
+        if (updateAuth) {
+          updateAuth();
+        }
+        
+        alert('Registration successful! Welcome to CivicPulse!');
+      } else {
+        if (!mobile || !password) {
+          alert('Please fill in all fields!');
+          setLoading(false);
+          return;
+        }
+        
+        const result = await loginUser({ mobile, password });
+        
+        localStorage.setItem('userId', result.uid);
+        localStorage.setItem('mobile', mobile);
+        localStorage.setItem('userName', result.profile.name);
+        
+        if (updateAuth) {
+          updateAuth();
+        }
+      }
+      
+      setTimeout(() => {
+        setLoading(false);
+        navigate('/dashboard');
+      }, 500);
+    } catch (error) {
+      console.error(error);
+      alert(error.response?.data?.error || 'Something went wrong!');
       setLoading(false);
-      console.log('Navigating to /dashboard');
-      navigate('/dashboard');
-    }, 500);
+    }
   };
 
   return (
@@ -46,10 +94,26 @@ export default function Login({ updateAuth }) {
 
         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
           <form onSubmit={handleSubmit}>
-            <h2 className="text-2xl font-bold text-white mb-2">Welcome back</h2>
-            <p className="text-slate-400 mb-6">Enter any credentials to continue</p>
+            <h2 className="text-2xl font-bold text-white mb-2">
+              {isRegistering ? 'Create Account' : 'Welcome back'}
+            </h2>
+            <p className="text-slate-400 mb-6">
+              {isRegistering ? 'Sign up to get started' : 'Enter your credentials to continue'}
+            </p>
 
             <div className="space-y-4">
+              {isRegistering && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">Full Name</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">Mobile Number</label>
                 <input
@@ -70,6 +134,18 @@ export default function Login({ updateAuth }) {
                   className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                 />
               </div>
+              {isRegistering && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">Confirm Password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm your password"
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              )}
             </div>
 
             <button
@@ -82,7 +158,7 @@ export default function Login({ updateAuth }) {
               ) : (
                 <>
                   <LogIn className="w-5 h-5" />
-                  Sign In
+                  {isRegistering ? 'Register' : 'Sign In'}
                 </>
               )}
             </button>
@@ -90,9 +166,16 @@ export default function Login({ updateAuth }) {
 
           <div className="mt-6 text-center space-y-3">
             <p className="text-slate-400">
-              New user?{' '}
-              <button onClick={() => {}} className="text-emerald-400 font-semibold hover:text-emerald-300 transition-colors">
-                Register here
+              {isRegistering ? 'Already have an account?' : 'New user?'}{' '}
+              <button 
+                onClick={() => {
+                  setIsRegistering(!isRegistering);
+                  setName('');
+                  setConfirmPassword('');
+                }} 
+                className="text-emerald-400 font-semibold hover:text-emerald-300 transition-colors"
+              >
+                {isRegistering ? 'Sign in here' : 'Register here'}
               </button>
             </p>
             <div className="border-t border-slate-700 pt-3">

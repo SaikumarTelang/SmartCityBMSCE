@@ -1,23 +1,135 @@
 import { TrendingUp, AlertTriangle, CheckCircle, MapPin, Upload } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { getUserData, setUserData } from '../utils/storage';
+import { getUser, getReports } from '../api/client';
+
+const getGoogleMapsUrl = (location) => {
+  if (!location) return '#';
+  const latLngMatch = location.match(/Lat:\s*([\d.-]+),\s*Lng:\s*([\d.-]+)/);
+  if (latLngMatch) {
+    const lat = parseFloat(latLngMatch[1]);
+    const lng = parseFloat(latLngMatch[2]);
+    return `https://www.google.com/maps?q=${lat},${lng}`;
+  }
+  return `https://www.google.com/maps/search/${encodeURIComponent(location)}`;
+};
 
 export default function HomeDashboard({ updateAuth }) {
   const navigate = useNavigate();
+  const [renderKey, setRenderKey] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [forceKey, setForceKey] = useState(0);
+  const [userPoints, setUserPoints] = useState(0);
+  const [serverReports, setServerReports] = useState([]);
+  const userId = localStorage.getItem('userId');
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRenderKey(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  useEffect(() => {
+    const loadData = async () => {
+      if (userId) {
+        getUser(userId).then((u) => setUserPoints(u.points || 0)).catch(() => {});
+        try {
+          const allReports = await getReports();
+          const userReports = allReports.filter(r => r.reportedBy === userId);
+          setServerReports(userReports);
+          
+          let reportsFiled = 0;
+          let activeTickets = 0;
+          let resolved = 0;
+          userReports.forEach(r => {
+            reportsFiled++;
+            if (r.status === 'Resolved' || r.status === 'Fixed') {
+              resolved++;
+            } else {
+              activeTickets++;
+            }
+          });
+          
+          setUserData('stats', { reportsFiled, activeTickets, resolved });
+          
+          const updatedLocalReports = userReports.map(r => ({
+            id: r.id,
+            ticketId: r.ticketId,
+            category: r.category,
+            severity: r.severity,
+            aiConfidence: r.aiConfidence,
+            votes: r.votes,
+            weightScore: r.weightScore,
+            address: r.address,
+            priority: r.priority || r.severity,
+            status: r.status,
+            timestamp: r.timestamp?.toDate ? r.timestamp.toDate().toISOString() : r.timestamp,
+            image: r.imagePreview
+          }));
+          
+          const sortReportsForStorage = (a, b) => {
+            const aResolved = a.status === 'Resolved' || a.status === 'Fixed';
+            const bResolved = b.status === 'Resolved' || b.status === 'Fixed';
+            if (aResolved && !bResolved) return 1;
+            if (!aResolved && bResolved) return -1;
+            return 0;
+          };
+          
+          setUserData('reports', updatedLocalReports.sort(sortReportsForStorage));
+        } catch (error) {
+          console.error('Failed to load reports:', error);
+        }
+      }
+    };
+    
+    loadData();
+  }, [userId, forceKey]);
+  
+  useEffect(() => {
+    window.refreshHomeDashboard = () => {
+      setRenderKey(prev => prev + 1);
+      setRefreshKey(prev => prev + 1);
+      setForceKey(prev => prev + 1);
+    };
+  }, []);
+
+  const statsData = getUserData('stats', { reportsFiled: 0, activeTickets: 0, resolved: 0 });
+  
+  const reportsFiled = statsData.reportsFiled || 0;
+  const activeTickets = statsData.activeTickets || 0;
+  const resolved = statsData.resolved || 0;
 
   const stats = [
-    { label: 'Reports Filed', value: '12', icon: TrendingUp, color: 'text-blue-500', bg: 'bg-blue-50' },
-    { label: 'Active Tickets', value: '3', icon: AlertTriangle, color: 'text-amber-500', bg: 'bg-amber-50' },
-    { label: 'Resolved', value: '8', icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    { label: 'Reports Filed', value: reportsFiled, icon: TrendingUp, color: 'text-blue-500', bg: 'bg-blue-50' },
+    { label: 'Active Tickets', value: activeTickets, icon: AlertTriangle, color: 'text-amber-500', bg: 'bg-amber-50' },
+    { label: 'Resolved', value: resolved, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
   ];
 
-  const recentReports = [
-    { id: 1, type: 'Pothole', location: 'MG Road', status: 'In Progress', priority: 'High' },
-    { id: 2, type: 'Garbage', location: 'Indiranagar', status: 'Resolved', priority: 'Medium' },
-    { id: 3, type: 'Streetlight', location: 'Koramangala', status: 'New', priority: 'Low' },
-  ];
+  const savedReports = getUserData('reports', []);
+  
+  const sortReports = (a, b) => {
+    const aResolved = a.status === 'Resolved' || a.status === 'Fixed';
+    const bResolved = b.status === 'Resolved' || b.status === 'Fixed';
+    if (aResolved && !bResolved) return 1;
+    if (!aResolved && bResolved) return -1;
+    return 0;
+  };
+  
+  const recentReports = savedReports.length > 0 
+    ? [...savedReports].sort(sortReports).slice(0, 3).map(r => ({
+        id: r.id,
+        type: r.category,
+        location: r.address,
+        status: r.status || 'New',
+        priority: r.priority || 'Medium',
+        image: r.image
+      }))
+    : [];
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <div key={renderKey} className="p-8 max-w-6xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Dashboard</h1>
           <p className="text-slate-600">Welcome back! Here's what's happening in your city.</p>
@@ -62,12 +174,24 @@ export default function HomeDashboard({ updateAuth }) {
             <h2 className="text-xl font-bold text-slate-900 mb-6">Recent Reports</h2>
             <div className="space-y-4">
               {recentReports.map((report) => (
-                <div key={report.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
-                  <div>
+                <div key={report.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  {report.image && report.image.startsWith('data:') && (
+                    <img 
+                      src={report.image} 
+                      alt={report.type} 
+                      className="w-16 h-16 object-cover rounded-lg"
+                    />
+                  )}
+                  <div className="flex-1">
                     <p className="font-semibold text-slate-900">{report.type}</p>
-                    <p className="text-sm text-slate-500 flex items-center gap-1">
+                    <a 
+                      href={getGoogleMapsUrl(report.location)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    >
                       <MapPin className="w-3 h-3" /> {report.location}
-                    </p>
+                    </a>
                   </div>
                   <div className="text-right">
                     <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
